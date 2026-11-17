@@ -17,6 +17,10 @@ def sigmoid(x: float) -> float:
 class Model:
 
     def __init__(self, input_size: int, layer_sizes: List[int], learning_rate: float):
+        if any([type(layer_sizes[i]) != int for i in range(len(layer_sizes))]):
+            raise ValueError("Layer sizes must be int.")
+
+        self.input_size = self.input_size = input_size
 
         self.lr = learning_rate
 
@@ -35,9 +39,9 @@ class Model:
         self.activations: List[np.ndarray] = [np.ndarray(0)] * self.nb_layers
         self.last_in: np.ndarray = np.ndarray(0)
 
-        self.relu = np.vectorize(ReLu)
-        self.drelu = np.vectorize(dReLu)
-        self.sigmoid = np.vectorize(sigmoid)
+        self.relu = np.vectorize(ReLu, otypes=[float])
+        self.drelu = np.vectorize(dReLu, otypes=[float])
+        self.sigmoid = np.vectorize(sigmoid, otypes=[float])
 
         for i in range(1, len(layer_sizes)):
 
@@ -52,6 +56,10 @@ class Model:
             )
 
     def forward(self, X: np.ndarray) -> np.ndarray:
+        if X.shape[0] != self.input_size:
+            raise ValueError(
+                f"Bad input : expected shape : ({self.input_size}, None), got {X.shape}."
+            )
 
         self.last_in = X
 
@@ -63,7 +71,7 @@ class Model:
         while i < self.nb_layers - 1:
 
             self.outputs[i] = (
-                np.matmul(self.weights[i], self.activations[i]) + self.bias[i]
+                np.matmul(self.weights[i], self.activations[i - 1]) + self.bias[i]
             )
             self.activations[i] = self.relu(self.outputs[i])
 
@@ -77,6 +85,11 @@ class Model:
         return self.activations[i]
 
     def calc_loss(self, y_pred: np.ndarray, y_true: np.ndarray):
+        if y_pred.shape != y_true.shape:
+            raise ValueError(
+                "Shape not equal: y_pred shape must be equal to y_true shape,"
+                f"but got : y_pred shape : {y_pred.shape} != y_true shape : {y_true.shape}."
+            )
 
         eps = 1e-7
         p = np.clip(y_pred, eps, 1 - eps)
@@ -87,15 +100,19 @@ class Model:
     def backward(
         self, y_pred: np.ndarray, y_true: np.ndarray
     ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
+        if y_pred.shape != y_true.shape:
+            raise ValueError(
+                "Shape not equal: y_pred shape must be equal to y_true shape,"
+                f"but got : y_pred shape : {y_pred.shape} != y_true shape : {y_true.shape}."
+            )
 
-        dA: List[np.ndarray] = [np.ndarray(0)] * self.nb_layers
         dZ: List[np.ndarray] = [np.ndarray(0)] * self.nb_layers
         dW: List[np.ndarray] = [np.ndarray(0)] * self.nb_layers
         db: List[np.ndarray] = [np.ndarray(0)] * self.nb_layers
 
         i = self.nb_layers - 1
 
-        dZ[i] = y_pred - y_true
+        dZ[i] = (y_pred - y_true) / y_true.shape[1]
         dW[i] = np.matmul(dZ[i], np.transpose(self.activations[i - 1]))
         db[i] = dZ[i].sum(axis=1, keepdims=True)
 
