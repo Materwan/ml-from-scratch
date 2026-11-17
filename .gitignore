@@ -1,0 +1,9 @@
+# Test files
+test*
+
+# python venv and cache
+.venv
+__pycache__
+
+# uv cache
+uv.lock
